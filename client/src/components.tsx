@@ -11,7 +11,7 @@ export function Topbar({ children }: { children?: React.ReactNode }) {
           <i />
           <i />
         </span>
-        Boardly Kanban
+        Boardly
       </Link>
       <div className="topbar-mid">{children}</div>
       <div className="topbar-user">
