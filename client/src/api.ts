@@ -1,4 +1,4 @@
-import type { Board, Task, User } from "./types";
+import type { Board, Category, Task, User } from "./types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "/api";
 let token: string | null = localStorage.getItem("token");
@@ -43,6 +43,11 @@ export const api = {
     req<Board>("/boards", "POST", { title, color }),
   board: (id: string) => req<{ board: Board; tasks: Task[] }>(`/boards/${id}`),
   deleteBoard: (id: string) => req<null>(`/boards/${id}`, "DELETE"),
+
+  addCategory: (boardId: string, name: string, color: string) =>
+    req<Category>(`/boards/${boardId}/categories`, "POST", { name, color }),
+  deleteCategory: (boardId: string, catId: string) =>
+    req<null>(`/boards/${boardId}/categories/${catId}`, "DELETE"),
 
   createTask: (boardId: string, title: string, status: string) =>
     req<Task>(`/boards/${boardId}/tasks`, "POST", { title, status }),

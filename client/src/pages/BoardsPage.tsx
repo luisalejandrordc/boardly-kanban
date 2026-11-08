@@ -90,7 +90,9 @@ export default function BoardsPage() {
                   <p className="meta">
                     {total === 0
                       ? "No tasks yet"
-                      : `${c.done} of ${total} done`}
+                      : c.done === total
+                        ? "All done"
+                        : `${c.done} of ${total} done`}
                   </p>
                   <div className="stack-bar" aria-hidden="true">
                     <span className="s-todo" style={{ flex: c.todo }} />
