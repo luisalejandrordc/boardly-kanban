@@ -1,7 +1,7 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { isValidObjectId, Types } from "mongoose";
-import { User, Board, Task, STATUSES, LABELS } from "./models";
+import { User, Board, Task, STATUSES, DEFAULT_CATEGORIES } from "./models";
 import { HttpError, requireAuth, signToken, wrap } from "./middleware";
 
 const router = Router();
@@ -131,6 +131,11 @@ router.get(
   "/boards/:id",
   wrap(async (req, res) => {
     const board = await ownBoard(req.params.id, res.locals.userId);
+    if (!board.seeded) {
+      board.set("categories", DEFAULT_CATEGORIES);
+      board.seeded = true;
+      await board.save();
+    }
     const tasks = await Task.find({ board: board._id })
       .sort({ order: 1 })
       .lean();
@@ -156,6 +161,48 @@ router.delete(
     const board = await ownBoard(req.params.id, res.locals.userId);
     await Task.deleteMany({ board: board._id });
     await board.deleteOne();
+    res.status(204).end();
+  }),
+);
+
+/* ---------- Categories ---------- */
+router.post(
+  "/boards/:id/categories",
+  wrap(async (req, res) => {
+    const board = await ownBoard(req.params.id, res.locals.userId);
+    const name = str(req.body.name, 24);
+    if (!name) throw new HttpError(400, "Name your category");
+    if (!isColor(req.body.color))
+      throw new HttpError(400, "Pick a color for the category");
+    if (board.categories.length >= 12)
+      throw new HttpError(400, "A board can have up to 12 categories");
+    if (
+      board.categories.some((c) => c.name.toLowerCase() === name.toLowerCase())
+    )
+      throw new HttpError(409, "This board already has that category");
+    board.categories.push({ name, color: req.body.color });
+    board.seeded = true;
+    await board.save();
+    res.status(201).json(board.categories[board.categories.length - 1]);
+  }),
+);
+
+router.delete(
+  "/boards/:id/categories/:catId",
+  wrap(async (req, res) => {
+    const board = await ownBoard(req.params.id, res.locals.userId);
+    const { catId } = req.params;
+    if (
+      !isValidObjectId(catId) ||
+      !board.categories.some((c) => String(c._id) === catId)
+    )
+      throw new HttpError(404, "Category not found");
+    board.categories.pull({ _id: catId });
+    await board.save();
+    await Task.updateMany(
+      { board: board._id, category: catId },
+      { $set: { category: null } },
+    );
     res.status(204).end();
   }),
 );
@@ -189,22 +236,64 @@ router.patch(
   wrap(async (req, res) => {
     if (!isValidObjectId(req.params.id))
       throw new HttpError(404, "Task not found");
-    const updates: Record<string, unknown> = {};
-    if (typeof req.body.title === "string" && req.body.title.trim())
-      updates.title = str(req.body.title, 120);
-    if (typeof req.body.description === "string")
-      updates.description = str(req.body.description, 1000);
-    if (LABELS.includes(req.body.label)) updates.label = req.body.label;
-    if (STATUSES.includes(req.body.status)) updates.status = req.body.status;
-    if (typeof req.body.order === "number" && Number.isFinite(req.body.order))
-      updates.order = req.body.order;
-
-    const task = await Task.findOneAndUpdate(
-      { _id: req.params.id, owner: res.locals.userId },
-      { $set: updates },
-      { new: true, runValidators: true },
-    );
+    const task = await Task.findOne({
+      _id: req.params.id,
+      owner: res.locals.userId,
+    });
     if (!task) throw new HttpError(404, "Task not found");
+    const b = req.body;
+
+    if (typeof b.title === "string" && b.title.trim())
+      task.set("title", str(b.title, 120));
+    if (typeof b.description === "string")
+      task.set("description", str(b.description, 1000));
+    if (STATUSES.includes(b.status)) task.set("status", b.status);
+    if (typeof b.order === "number" && Number.isFinite(b.order))
+      task.set("order", b.order);
+
+    if ("category" in b) {
+      if (b.category === null) task.set("category", null);
+      else {
+        const valid =
+          isValidObjectId(b.category) &&
+          (await Board.exists({
+            _id: task.board,
+            "categories._id": b.category,
+          }));
+        if (!valid)
+          throw new HttpError(
+            400,
+            "That category does not exist on this board",
+          );
+        task.set("category", b.category);
+      }
+    }
+    if ("dueDate" in b) {
+      if (b.dueDate === null || b.dueDate === "") task.set("dueDate", null);
+      else if (
+        typeof b.dueDate === "string" &&
+        /^\d{4}-\d{2}-\d{2}$/.test(b.dueDate) &&
+        !isNaN(Date.parse(b.dueDate))
+      )
+        task.set("dueDate", b.dueDate);
+      else throw new HttpError(400, "Enter a valid due date");
+    }
+    if ("estimateMinutes" in b) {
+      if (b.estimateMinutes === null) task.set("estimateMinutes", null);
+      else if (
+        Number.isInteger(b.estimateMinutes) &&
+        b.estimateMinutes >= 1 &&
+        b.estimateMinutes <= 9999
+      )
+        task.set("estimateMinutes", b.estimateMinutes);
+      else
+        throw new HttpError(
+          400,
+          "Estimated time must be between 1 minute and 166 hours",
+        );
+    }
+
+    await task.save();
     res.json(task);
   }),
 );

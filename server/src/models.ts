@@ -1,7 +1,14 @@
 import { Schema, model } from "mongoose";
 
 export const STATUSES = ["todo", "doing", "done"] as const;
-export const LABELS = ["none", "design", "dev", "urgent", "idea"] as const;
+
+// Every board starts with these categories; users can add or remove their own
+export const DEFAULT_CATEGORIES = [
+  { name: "Design", color: "#C026D3" },
+  { name: "Dev", color: "#0EA5E9" },
+  { name: "Urgent", color: "#E5484D" },
+  { name: "Idea", color: "#F5A524" },
+];
 
 const userSchema = new Schema(
   {
@@ -18,6 +25,11 @@ const userSchema = new Schema(
   { timestamps: true },
 );
 
+const categorySchema = new Schema({
+  name: { type: String, required: true, trim: true, maxlength: 24 },
+  color: { type: String, required: true },
+});
+
 const boardSchema = new Schema(
   {
     owner: {
@@ -28,6 +40,8 @@ const boardSchema = new Schema(
     },
     title: { type: String, required: true, trim: true, maxlength: 60 },
     color: { type: String, default: "#4338FF" },
+    categories: [categorySchema],
+    seeded: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
@@ -48,7 +62,9 @@ const taskSchema = new Schema(
     },
     title: { type: String, required: true, trim: true, maxlength: 120 },
     description: { type: String, default: "", maxlength: 1000 },
-    label: { type: String, enum: LABELS, default: "none" },
+    category: { type: Schema.Types.ObjectId, default: null },
+    dueDate: { type: String, default: null }, // optional, "YYYY-MM-DD"
+    estimateMinutes: { type: Number, default: null, min: 1, max: 9999 }, // optional
     status: { type: String, enum: STATUSES, default: "todo" },
     order: { type: Number, default: 0 },
   },
