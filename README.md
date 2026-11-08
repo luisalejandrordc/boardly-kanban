@@ -1,4 +1,4 @@
-# Tablero – Kanban boards
+# Boardly Kanban
 
 Full-stack kanban app. Node.js + Express + TypeScript + MongoDB (Mongoose) on the backend, React + TypeScript + Vite on the frontend.
 

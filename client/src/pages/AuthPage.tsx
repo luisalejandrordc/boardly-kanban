@@ -36,7 +36,7 @@ export default function AuthPage({ mode }: { mode: "login" | "register" }) {
             <i />
             <i />
           </span>
-          Tablero
+          Boardly Kanban
         </div>
         <h1>Move work from to&nbsp;do to done.</h1>
         <p>Boards, columns and cards. Nothing else in the way.</p>
