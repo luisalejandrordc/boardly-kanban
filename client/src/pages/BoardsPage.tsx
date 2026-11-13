@@ -42,7 +42,8 @@ export default function BoardsPage() {
     <>
       <Topbar />
       <main className="page">
-        <h1 className="page-title">{user?.name.split(" ")[0]}'s boards</h1>
+        {/* <h1 className="page-title">{user?.name.split(" ")[0]}'s boards</h1> */}
+        <h1 className="page-title">{user?.name}'s boards</h1>
 
         <form className="new-board" onSubmit={create}>
           <input
